@@ -3,7 +3,7 @@ import time
 import random
 import asyncio
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 from instagrapi import Client
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
@@ -14,7 +14,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandle
 TG_BOT_TOKEN = os.environ.get("BOT_TOKEN")
 ADMIN_CHAT_ID = os.environ.get("ADMIN_ID")
 
-WAITING_SESSION, WAITING_TARGET = range(2)
+WAITING_SESSION, WAITING_TARGET, WAITING_WATERMARK = range(3)
 
 BOT_STATE = {
     "target": None,
@@ -25,13 +25,13 @@ BOT_STATE = {
     "last_status": "Setup pending.",
     "daily_target": 7,
     "uploaded_today": 0,
-    "last_upload_date": None
+    "last_upload_date": None,
+    "watermark": None # Naya feature
 }
 
 HISTORY_FILE = "uploaded_history.txt"
 cl = None
 
-# Fixed Schedule Times (24-hour format)
 SCHEDULE_TIMES = ["06:00", "09:00", "12:00", "14:00", "17:00", "19:00", "21:00"]
 
 # ==========================================
@@ -40,19 +40,22 @@ SCHEDULE_TIMES = ["06:00", "09:00", "12:00", "14:00", "17:00", "19:00", "21:00"]
 def get_main_menu():
     keyboard = [
         [InlineKeyboardButton("📊 Dashboard", callback_data='status')],
-        [InlineKeyboardButton("▶️ Resume", callback_data='start_post'), InlineKeyboardButton("⏸️ Pause", callback_data='pause_post')]
+        [InlineKeyboardButton("▶️ Resume", callback_data='start_post'), InlineKeyboardButton("⏸️ Pause", callback_data='pause_post')],
+        [InlineKeyboardButton("⚙️ Settings (Watermark)", callback_data='settings')]
     ]
     return InlineKeyboardMarkup(keyboard)
 
 def get_dashboard_text():
     if not BOT_STATE["target"]:
-        return "🤖 **INSTA AUTO-POSTER**\n\n⚠️ **Setup Required**\nUse `/setup` to configure Session ID and Target."
+        return "🤖 **INSTA AUTO-POSTER**\n\n⚠️ **Setup Required**\nUse `/setup` to configure."
     
     status_icon = "🟢 Running" if BOT_STATE["is_running"] else "🔴 Paused"
     today_str = datetime.now().strftime("%Y-%m-%d")
     if BOT_STATE["last_upload_date"] != today_str:
         BOT_STATE["uploaded_today"] = 0
         BOT_STATE["last_upload_date"] = today_str
+
+    wm_status = f"@{BOT_STATE['watermark']}" if BOT_STATE['watermark'] else "Disabled"
 
     return (
         f"┏━━━━━━━━━━━━━━━━━━━━┓\n"
@@ -62,7 +65,8 @@ def get_dashboard_text():
         f"📥 **Dest:** `@{BOT_STATE['target2']}`\n"
         f"⚡ **Status:** {status_icon}\n\n"
         f"📊 **Today's Progress:** `{BOT_STATE['uploaded_today']} / {BOT_STATE['daily_target']}`\n"
-        f"📦 **Total Uploaded:** `{BOT_STATE['total_uploaded']}`\n\n"
+        f"📦 **Total Uploaded:** `{BOT_STATE['total_uploaded']}`\n"
+        f"💧 **Watermark:** `{wm_status}`\n\n"
         f"⏰ **Fixed Schedule:**\n6AM, 9AM, 12PM, 2PM, 5PM, 7PM, 9PM\n\n"
         f"ℹ️ **Last Activity:**\n_{BOT_STATE['last_status']}_\n\n"
         f"👇 **Control Panel:**"
@@ -77,7 +81,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def setup_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(ADMIN_CHAT_ID): return
-    await update.message.reply_text("Step 1: Apni Instagram `sessionid` paste karo.\n(Browser cookies se `sessionid` copy karo)", parse_mode='Markdown')
+    await update.message.reply_text("Step 1: Apni Instagram `sessionid` paste karo.", parse_mode='Markdown')
     return WAITING_SESSION
 
 async def setup_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,10 +93,10 @@ async def setup_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cl.login_by_sessionid(sid)
         upload_acc = cl.account_info().username
         BOT_STATE["target2"] = upload_acc
-        await update.message.reply_text(f"✅ Session valid! Logged in as `@{upload_acc}`\n\nStep 2: Source account ka username batao (jahan se post copy karni hai):", parse_mode='Markdown')
+        await update.message.reply_text(f"✅ Session valid! Logged in as `@{upload_acc}`\n\nStep 2: Source account ka username batao:", parse_mode='Markdown')
         return WAITING_TARGET
     except Exception as e:
-        await update.message.reply_text(f"❌ Invalid Session. Error: {str(e)[:50]}\nTry `/setup` again.")
+        await update.message.reply_text(f"❌ Invalid Session. Error: {str(e)[:50]}")
         return ConversationHandler.END
 
 async def setup_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -100,20 +104,14 @@ async def setup_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
     BOT_STATE["target"] = target_name
     BOT_STATE["is_running"] = True
     BOT_STATE["last_status"] = f"Started fetching from @{target_name}"
-    
-    await update.message.reply_text(
-        f"✅ Target set to `@{target_name}`\n"
-        f"🚀 Bot is now **Running 24/7**!\n"
-        f"⏰ Fixed Schedule: 6AM, 9AM, 12PM, 2PM, 5PM, 7PM, 9PM\n\n"
-        f"Use `/start` for Dashboard.", 
-        parse_mode='Markdown'
-    )
+    await update.message.reply_text(f"✅ Target set to `@{target_name}`\n🚀 Bot is now **Running 24/7**!", parse_mode='Markdown')
     return ConversationHandler.END
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if str(query.message.chat.id) != str(ADMIN_CHAT_ID): return
     await query.answer()
+    
     if query.data == 'status':
         await query.edit_message_text(text=get_dashboard_text(), reply_markup=get_main_menu(), parse_mode='Markdown')
     elif query.data == 'pause_post':
@@ -122,9 +120,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == 'start_post':
         BOT_STATE["is_running"] = True; BOT_STATE["last_status"] = "Resumed by Admin."
         await query.edit_message_text(text=get_dashboard_text(), reply_markup=get_main_menu(), parse_mode='Markdown')
+    elif query.data == 'settings':
+        await query.edit_message_text(
+            text="⚙️ **Settings**\n\nSend command:\n`/watermark YourBrand` - To add text watermark to description.\n`/watermark off` - To remove watermark.",
+            reply_markup=get_main_menu(), parse_mode='Markdown'
+        )
+
+async def set_watermark(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(ADMIN_CHAT_ID): return
+    if context.args:
+        wm = " ".join(context.args).strip()
+        if wm.lower() == 'off':
+            BOT_STATE["watermark"] = None
+            await update.message.reply_text("✅ Watermark removed.")
+        else:
+            BOT_STATE["watermark"] = wm
+            await update.message.reply_text(f"✅ Watermark added: `{wm}`", parse_mode='Markdown')
+    else:
+        await update.message.reply_text("❌ Usage: `/watermark YourBrand` or `/watermark off`", parse_mode='Markdown')
 
 # ==========================================
-# CORE LOGIC (Fixed Time Scheduler)
+# CORE LOGIC
 # ==========================================
 def load_history():
     if os.path.exists(HISTORY_FILE):
@@ -140,7 +156,6 @@ def send_tg_alert(msg):
     except: pass
 
 def perform_upload():
-    """Ye function ek single post download aur upload karta hai"""
     global BOT_STATE
     try:
         BOT_STATE["last_status"] = f"Searching for new posts on @{BOT_STATE['target']}..."
@@ -162,6 +177,10 @@ def perform_upload():
             if media_path:
                 caption = post_to_copy.caption_text if post_to_copy.caption_text else ""
                 
+                # Apply Watermark if set
+                if BOT_STATE["watermark"]:
+                    caption += f"\n\n📌 Credit: @{BOT_STATE['watermark']}"
+                
                 BOT_STATE["last_status"] = f"Uploading to @{BOT_STATE['target2']}..."
                 if is_video: cl.clip_upload(media_path, caption)
                 else: cl.photo_upload(media_path, caption)
@@ -169,7 +188,6 @@ def perform_upload():
                 os.remove(media_path)
                 save_history(post_to_copy.pk)
                 
-                # Update Stats
                 BOT_STATE["total_uploaded"] += 1
                 BOT_STATE["uploaded_today"] += 1
                 BOT_STATE["last_status"] = f"✅ Uploaded successfully! (Today: {BOT_STATE['uploaded_today']}/7)"
@@ -182,14 +200,12 @@ def perform_upload():
         print(f"[ERROR] {e}")
 
 async def scheduler_loop():
-    """24/7 Loop jo exact time par upload trigger karta hai"""
     global BOT_STATE
     while True:
         if not BOT_STATE["is_running"] or not BOT_STATE["target"] or not cl:
             await asyncio.sleep(10)
             continue
 
-        # Check Daily Reset
         today_str = datetime.now().strftime("%Y-%m-%d")
         if BOT_STATE["last_upload_date"] != today_str:
             BOT_STATE["uploaded_today"] = 0
@@ -198,23 +214,17 @@ async def scheduler_loop():
         now = datetime.now()
         current_time_str = now.strftime("%H:%M")
         
-        # Agar aaj ka target (7) pura nahi hua hai, toh time check karo
         if BOT_STATE["uploaded_today"] < BOT_STATE["daily_target"]:
             if current_time_str in SCHEDULE_TIMES:
-                # Check karo ki is time par aaj upload ho chuka hai ya nahi (History se)
-                # Ek simple logic: Agar "last_uploaded_time" current time se match karta hai, toh skip karo.
                 if BOT_STATE.get("last_triggered_slot") != current_time_str:
                     BOT_STATE["last_triggered_slot"] = current_time_str
                     
-                    # Anti-ban: 30 se 90 seconds ka random wait (Jaise insaan karta hai)
                     wait_time = random.randint(30, 90)
                     BOT_STATE["last_status"] = f"Scheduled time hit! Waiting {wait_time}s before upload..."
                     await asyncio.sleep(wait_time)
                     
-                    # Execute in a separate thread to avoid blocking the loop
                     await asyncio.to_thread(perform_upload)
         
-        # Loop har 30 second me time check karega
         await asyncio.sleep(30)
 
 # ==========================================
@@ -233,6 +243,7 @@ if __name__ == '__main__':
     )
     
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("watermark", set_watermark))
     app.add_handler(conv_handler)
     app.add_handler(CallbackQueryHandler(button_handler))
     
