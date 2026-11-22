@@ -335,7 +335,7 @@ if __name__ == '__main__':
     
     conv_handler = ConversationHandler(
         entry_points=[
-            CommandHandler('setup', setup_pass_mode), # Default fallback
+            CommandHandler('setup', btn_login_pass), # Default fallback
             CommandHandler('setproxy', setup_proxy_start),
             CallbackQueryHandler(setup_pass_mode, pattern='^setup_pass_mode$'),
             CallbackQueryHandler(setup_session_mode, pattern='^setup_session_mode$')
