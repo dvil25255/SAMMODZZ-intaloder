@@ -9,8 +9,14 @@ from instagrapi import Client
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 
+# ==========================================
+# RAILWAY VARIABLES
+# ==========================================
 TG_BOT_TOKEN = os.environ.get("BOT_TOKEN")
 ADMIN_CHAT_ID = os.environ.get("ADMIN_ID")
+
+# Webshare Rotating Proxy
+DEFAULT_PROXY = "http://vbhaojyx-rotate:ubfsf9jq5wg5@p.webshare.io:80"
 
 WAITING_USER, WAITING_PASS, WAITING_OTP, WAITING_TARGET, WAITING_PROXY, WAITING_SESSION = range(6)
 CONFIG_FILE = "config.json"
@@ -19,7 +25,7 @@ BOT_STATE = {
     "target": None, "target2": None, "username": None, "password": None,
     "is_running": False, "total_uploaded": 0, "last_status": "Bot starting...",
     "daily_target": 7, "uploaded_today": 0, "last_upload_date": None,
-    "watermark": "SAMMODZZ", "challenge_required": False, "proxy": None
+    "watermark": "SAMMODZZ", "challenge_required": False, "proxy": DEFAULT_PROXY
 }
 HISTORY_FILE = "uploaded_history.txt"
 cl = None
@@ -48,7 +54,7 @@ def get_dashboard_text():
     today_str = datetime.now().strftime("%Y-%m-%d")
     if BOT_STATE["last_upload_date"] != today_str:
         BOT_STATE["uploaded_today"] = 0; BOT_STATE["last_upload_date"] = today_str
-    proxy_status = "✅ Active" if BOT_STATE["proxy"] else "❌ None"
+    proxy_status = "✅ Active (Webshare)" if BOT_STATE["proxy"] else "❌ None"
     return (
         f"┏━━━━━━━━━━━━━━━━━━━━┓\n   🤖 **SAMMODZZ PANEL**\n┗━━━━━━━━━━━━━━━━━━━━┛\n\n"
         f"👑 **Dev:** @SAMMODZZ\n🎯 **Source:** `@{BOT_STATE['target']}`\n📥 **Dest:** `@{BOT_STATE['target2']}`\n"
@@ -98,7 +104,7 @@ async def setup_pass(update: Update, context: ContextTypes.DEFAULT_TYPE):
     BOT_STATE["password"] = update.message.text.strip()
     try: await update.message.delete()
     except: pass
-    msg = await update.message.reply_text("🔄 Trying to login with Password...")
+    msg = await update.message.reply_text("🔄 Trying to login with Password (via Proxy)...")
     try:
         cl = Client()
         if BOT_STATE["proxy"]: cl.set_proxy(BOT_STATE["proxy"])
@@ -118,7 +124,7 @@ async def setup_pass(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def setup_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global cl
     sid = update.message.text.strip()
-    msg = await update.message.reply_text("🔄 Validating Session ID...")
+    msg = await update.message.reply_text("🔄 Validating Session ID (via Proxy)...")
     try:
         cl = Client()
         if BOT_STATE["proxy"]: cl.set_proxy(BOT_STATE["proxy"])
@@ -128,7 +134,7 @@ async def setup_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"✅ Session Valid! Logged in as `@{BOT_STATE['target2']}`\n\nStep 2: Source account ka username batao:", parse_mode='Markdown')
         return WAITING_TARGET
     except Exception as e:
-        await msg.edit_text(f"❌ Invalid Session ID: {str(e)[:50]}\n\nTry again with `/start`.")
+        await msg.edit_text(f"❌ Invalid Session ID: {str(e)[:80]}\n\nTry again with `/start`.", parse_mode='Markdown')
         return ConversationHandler.END
 
 async def setup_otp(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -156,7 +162,7 @@ async def setup_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_proxy_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.edit_message_text("🛡️ **Proxy Setup**\n\nSend Proxy in format:\n`http://user:pass@ip:port`\nOR\n`socks5://ip:port`\n\n_(Send /cancel to abort)_", parse_mode='Markdown')
+    await query.edit_message_text(f"🛡️ **Proxy Setup**\n\nCurrent Proxy: `{BOT_STATE['proxy']}`\n\nSend new Proxy in format:\n`http://user:pass@ip:port`\nOR\n`socks5://ip:port`\n\n_(Send /cancel to abort)_", parse_mode='Markdown')
     return WAITING_PROXY
 
 async def setup_proxy(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -243,7 +249,7 @@ if __name__ == '__main__':
             if BOT_STATE["proxy"]: cl.set_proxy(BOT_STATE["proxy"])
             cl.load_settings(CONFIG_FILE); cl.get_timeline_feed()
             BOT_STATE["target2"] = cl.account_info().username
-            BOT_STATE["last_status"] = "Auto-logged in."
+            BOT_STATE["last_status"] = "Auto-logged in (Proxy Active)."
         except: cl = None
     app = ApplicationBuilder().token(TG_BOT_TOKEN).build()
     
@@ -273,5 +279,5 @@ if __name__ == '__main__':
     async def post_init(application): 
         asyncio.create_task(scheduler_loop())
     app.post_init = post_init
-    print("🚀 SAMMODZZ Bot is starting...")
+    print("🚀 SAMMODZZ Bot is starting with Default Proxy...")
     app.run_polling()
