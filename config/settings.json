@@ -1,0 +1,6 @@
+{
+  "paused": false,
+  "daily_target": 7,
+  "post_slots": ["06:00", "09:00", "12:00", "14:00", "17:00", "19:00", "21:00"],
+  "timezone": "Asia/Kolkata"
+}
