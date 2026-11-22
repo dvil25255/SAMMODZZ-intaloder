@@ -107,7 +107,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(text=get_dashboard_text(), reply_markup=get_main_menu(), parse_mode='Markdown')
 
-async def setup_pass_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def btn_login_pass(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.edit_message_text("Step 1: Apna Instagram **Username** bhejo:", parse_mode='Markdown')
