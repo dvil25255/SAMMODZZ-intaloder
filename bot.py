@@ -4,6 +4,7 @@ import random
 import asyncio
 import requests
 import json
+import traceback
 from datetime import datetime
 from instagrapi import Client
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -114,6 +115,7 @@ async def setup_pass(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"✅ Login successful as `@{BOT_STATE['target2']}`!\n\nStep 3: Source account ka username batao:", parse_mode='Markdown')
         return WAITING_TARGET
     except Exception as e:
+        traceback.print_exc()
         if "challenge_required" in str(e).lower():
             await msg.edit_text("⚠️ **Instagram needs OTP!**\n\nOTP code yahan bhejo:", parse_mode='Markdown')
             return WAITING_OTP
