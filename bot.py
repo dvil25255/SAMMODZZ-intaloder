@@ -136,7 +136,8 @@ async def setup_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.edit_text(f"✅ Session Valid! Logged in as `@{BOT_STATE['target2']}`\n\nStep 2: Source account ka username batao:", parse_mode='Markdown')
         return WAITING_TARGET
     except Exception as e:
-        await msg.edit_text(f"❌ Invalid Session ID: {str(e)[:80]}\n\nTry again with `/start`.", parse_mode='Markdown')
+        traceback.print_exc()
+        await msg.edit_text(f"❌ Session login failed: {type(e).__name__}. Check Railway logs.", parse_mode='Markdown')
         return ConversationHandler.END
 
 async def setup_otp(update: Update, context: ContextTypes.DEFAULT_TYPE):
