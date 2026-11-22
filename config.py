@@ -3,9 +3,15 @@ import json
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 OWNER_CHAT_ID = os.environ.get("OWNER_CHAT_ID", "")
+
 IG_SESSIONID = os.environ.get("IG_SESSIONID", "")
 IG_USERNAME = os.environ.get("IG_USERNAME", "")
 IG_PASSWORD = os.environ.get("IG_PASSWORD", "")
+
+SOURCE_ACCOUNTS = [u.strip() for u in os.environ.get("SOURCE_ACCOUNTS", "").split(",") if u.strip()]
+AUTO_FETCH_COUNT = int(os.environ.get("AUTO_FETCH_COUNT", "5"))
+CREDIT_TEMPLATE = os.environ.get("CREDIT_TEMPLATE", "\n\n📸 Credit: @{source}\n#repost #credit")
+CAPTION_MAX_LEN = 2100
 
 POST_SLOTS = ["06:00", "09:00", "12:00", "14:00", "17:00", "19:00", "21:00"]
 DAILY_TARGET = 7

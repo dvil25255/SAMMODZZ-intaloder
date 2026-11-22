@@ -18,6 +18,7 @@ def register_handlers(application):
     application.add_handler(CommandHandler("history", cmd_history))
     application.add_handler(CommandHandler("pause", cmd_pause))
     application.add_handler(CommandHandler("resume", cmd_resume))
+    application.add_handler(CommandHandler("source", cmd_source))
     application.add_handler(CallbackQueryHandler(cb_menu, pattern="^menu$"))
     application.add_handler(CallbackQueryHandler(cb_status, pattern="^status$"))
     application.add_handler(CallbackQueryHandler(cb_history, pattern="^history$"))
@@ -124,3 +125,36 @@ def _history_text():
         src = "@%s" % r["source_username"] if r["source_username"] else "file"
         lines.append("%s `%s` — %s — media_id: `%s`" % (icon, when, src, r["media_id"]))
     return "\n".join(lines)
+
+
+async def cmd_source(update, context):
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: /source add <username> | /source list | /source remove <username>")
+        return
+    action = args[0].lower()
+    if action == "add" and len(args) == 2:
+        username = args[1].lstrip("@")
+        try:
+            with get_conn() as conn:
+                conn.execute("INSERT INTO sources (username) VALUES (?)", (username,))
+            await update.message.reply_text("@%s source में जोड़ दिया ✅" % username)
+        except Exception as e:
+            if "UNIQUE" in str(e):
+                await update.message.reply_text("यह source पहले से जुड़ा है ❌")
+            else:
+                await update.message.reply_text("DB error: %s" % e)
+    elif action == "list":
+        with get_conn() as conn:
+            rows = conn.execute("SELECT username FROM sources ORDER BY id").fetchall()
+        if not rows:
+            await update.message.reply_text("कोई source नहीं जुड़ा।")
+            return
+        await update.message.reply_text("📋 Sources:\n" + "\n".join("• @" + r["username"] for r in rows))
+    elif action == "remove" and len(args) == 2:
+        username = args[1].lstrip("@")
+        with get_conn() as conn:
+            conn.execute("DELETE FROM sources WHERE username=?", (username,))
+        await update.message.reply_text("@%s हटा दिया।" % username)
+    else:
+        await update.message.reply_text("गलत usage।")

@@ -11,11 +11,12 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             media_url TEXT NOT NULL DEFAULT '',
             source_username TEXT NOT NULL DEFAULT '',
+            media_pk TEXT NOT NULL DEFAULT '',
             media_index INTEGER NOT NULL DEFAULT 0,
             post_type TEXT NOT NULL DEFAULT 'photo',
             caption TEXT NOT NULL DEFAULT '',
             is_video INTEGER NOT NULL DEFAULT 0,
-            url_hash TEXT NOT NULL,
+            url_hash TEXT NOT NULL UNIQUE,
             status TEXT NOT NULL DEFAULT 'queued',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             published_at TEXT
@@ -29,6 +30,11 @@ def init_db():
             slot TEXT,
             status TEXT NOT NULL DEFAULT 'success',
             error TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS sources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_queue_status ON queue(status);
